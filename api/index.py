@@ -23,14 +23,21 @@ def _load_demo_data() -> None:
 
     from app.core.database import SessionLocal
     from app.models.incidents import Incident
+    from app.models.rescue import RescueAssignment
 
     db = SessionLocal()
     try:
         has_incidents = db.query(Incident.id).first() is not None
+        has_rescue_demo = (
+            db.query(RescueAssignment.id)
+            .filter(RescueAssignment.id == "asgn-mumbai-echo-05")
+            .first()
+            is not None
+        )
     finally:
         db.close()
 
-    if not has_incidents:
+    if not has_incidents or not has_rescue_demo:
         from seed import seed_all
 
         seed_all()

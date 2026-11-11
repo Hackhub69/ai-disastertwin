@@ -193,10 +193,20 @@ function ChecklistPanel({
   onToggle,
 }: {
   items: ChecklistItem[];
-  onToggle: (id: string, completed: boolean) => void;
+  onToggle: (id: string, completed: boolean) => Promise<void>;
 }) {
   const completed = items.filter(i => i.completed).length;
   const progress = items.length > 0 ? (completed / items.length) * 100 : 0;
+  const [updatingItemId, setUpdatingItemId] = useState<string | null>(null);
+
+  const handleToggle = async (item: ChecklistItem) => {
+    setUpdatingItemId(item.id);
+    try {
+      await onToggle(item.id, !item.completed);
+    } finally {
+      setUpdatingItemId(null);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -222,11 +232,15 @@ function ChecklistPanel({
 
       <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
         {items.map(item => (
-          <motion.div
+          <motion.button
+            type="button"
             key={item.id}
             layout
-            onClick={() => onToggle(item.id, !item.completed)}
-            className={`p-3 rounded-xl border transition-all cursor-pointer flex items-start gap-3 ${
+            onClick={() => void handleToggle(item)}
+            disabled={updatingItemId === item.id}
+            aria-label={`${item.completed ? 'Reopen' : 'Complete'} step ${item.step_number}: ${item.title}`}
+            aria-busy={updatingItemId === item.id}
+            className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer flex items-start gap-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/80 disabled:cursor-wait disabled:opacity-70 ${
               item.completed
                 ? 'bg-emerald-950/20 border-emerald-800/40 opacity-80'
                 : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'
@@ -239,7 +253,11 @@ function ChecklistPanel({
                   : 'border-slate-600 bg-slate-800'
               }`}
             >
-              {item.completed && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+              {updatingItemId === item.id ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-400" aria-hidden="true" />
+              ) : item.completed ? (
+                <Check className="w-3.5 h-3.5 stroke-[3]" aria-hidden="true" />
+              ) : null}
             </div>
 
             <div className="flex-1 min-w-0">
@@ -262,7 +280,7 @@ function ChecklistPanel({
                 <p className="text-xs text-slate-400 leading-relaxed">{item.description}</p>
               )}
             </div>
-          </motion.div>
+          </motion.button>
         ))}
       </div>
     </div>

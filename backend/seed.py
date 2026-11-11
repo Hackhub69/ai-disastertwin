@@ -378,12 +378,13 @@ def seed_all():
     )
     db.add(asgn)
 
-    # Checklist Items
+    # Checklist IDs are stable so a serverless demo instance can continue a
+    # checklist selected from another warm instance.
     flood_checklist_items = agent_rescue.get_checklist_items("flood")
     for i, item in enumerate(flood_checklist_items):
         is_completed = i < 4  # Steps 1 to 4 completed, rest active
         db.add(ChecklistItem(
-            id=str(uuid.uuid4()),
+            id=f"check-rta01-{item['step_number']:02d}",
             assignment_id=assignment_id,
             response_plan_id=plan_flood_id,
             step_number=item["step_number"],
@@ -399,6 +400,40 @@ def seed_all():
             created_at=datetime.now(timezone.utc),
         ))
     print(f"  [OK] Deployment Assignment {assignment_id} (Status: ON_SCENE, 4/8 Checklist Tasks Completed)")
+
+    # A pending recommendation keeps the operator approval flow available in
+    # the hosted demo. Its fixed ID also makes it safe to use across Vercel
+    # function instances backed by their own temporary SQLite databases.
+    recommended_assignment_id = "asgn-mumbai-echo-05"
+    db.add(RescueAssignment(
+        id=recommended_assignment_id,
+        incident_id="inc-mumbai-flood-01",
+        team_id="team-rte-05",
+        response_plan_id=plan_flood_id,
+        status="recommended",
+        recommended_by="Agent C Matcher",
+        priority_at_assignment="high",
+        notes="Pending operator authorization for general emergency support.",
+        is_demo=True,
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+    ))
+    for item in flood_checklist_items:
+        db.add(ChecklistItem(
+            id=f"check-rte05-{item['step_number']:02d}",
+            assignment_id=recommended_assignment_id,
+            response_plan_id=plan_flood_id,
+            step_number=item["step_number"],
+            title=item["title"],
+            description=item.get("description", ""),
+            category=item.get("category", "action"),
+            is_mandatory=item.get("is_mandatory", True),
+            requires_approval=item.get("requires_approval", False),
+            completed=False,
+            is_demo=True,
+            created_at=datetime.now(timezone.utc),
+        ))
+    print(f"  [OK] Deployment Assignment {recommended_assignment_id} (Status: RECOMMENDED, pending authorization)")
 
     # Timeline updates
     timeline_steps = [
@@ -524,7 +559,7 @@ def seed_all():
     print("  - 8 Response Logistics Assets (Ambulances, Boats, Shelters)")
     print("  - 5 Rescue Teams with Member Rosters and Gear Inventory")
     print("  - 2 Structured Response Plans (Approved & Draft)")
-    print("  - 1 Active Deployment (On Scene, 4/8 Checklist Tasks Done)")
+    print("  - 2 Demo Deployments (On Scene and Pending Authorization)")
     print("  - Multilingual Comms & Alerts (English, Hindi, Marathi)")
     print("  - Cryptographic Audit Trail of All Operator Decisions")
     print("=" * 60)
