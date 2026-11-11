@@ -11,7 +11,7 @@ import {
   Shield, CheckCircle2, ChevronRight, Zap, RefreshCw, Radio
 } from 'lucide-react';
 import { usePolling, useApi } from '../hooks/useApi';
-import { getDashboardSummary, getWeather } from '../services/api';
+import { getDashboardSummary, getIncident, getWeather } from '../services/api';
 import DashboardStatCard from '../components/DashboardStatCard';
 import IncidentPriorityBadge from '../components/IncidentPriorityBadge';
 import DemoBadge from '../components/DemoBadge';
@@ -247,6 +247,22 @@ export default function Overview() {
   const navigate = useNavigate();
   const { data, loading, error, refetch } = usePolling(getDashboardSummary, 15000);
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
+  const [openingIncidentId, setOpeningIncidentId] = useState<string | null>(null);
+
+  const openIncidentDetails = async (incidentId: string) => {
+    setOpeningIncidentId(incidentId);
+    try {
+      // The dashboard intentionally receives compact incident summaries. Fetch
+      // the full record before rendering it in the detail inspector.
+      setSelectedIncident(await getIncident(incidentId));
+    } catch {
+      // Preserve access to the incident if its record is unavailable for a
+      // moment instead of rendering the incomplete dashboard summary.
+      navigate('/incidents');
+    } finally {
+      setOpeningIncidentId(null);
+    }
+  };
 
   const typeChartData = (data?.incidents_by_type && typeof data.incidents_by_type === 'object')
     ? Object.entries(data.incidents_by_type).map(([name, value]) => ({ name, value }))
@@ -483,10 +499,14 @@ export default function Overview() {
               <p className="text-xs text-slate-500 text-center py-8">No incidents currently reported.</p>
             ) : (
               data.recent_incidents.slice(0, 5).map((inc) => (
-                <div
+                <button
+                  type="button"
                   key={inc.id}
-                  onClick={() => setSelectedIncident(inc as Incident)}
-                  className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 hover:border-cyan-500/40 hover:bg-slate-900/90 transition-all cursor-pointer flex items-center justify-between gap-3 group"
+                  onClick={() => openIncidentDetails(inc.id)}
+                  disabled={openingIncidentId === inc.id}
+                  aria-label={`View details for ${inc.title}`}
+                  aria-busy={openingIncidentId === inc.id}
+                  className="w-full p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 hover:border-cyan-500/40 hover:bg-slate-900/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/80 disabled:cursor-wait disabled:opacity-70 transition-all text-left flex items-center justify-between gap-3 group"
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
@@ -500,8 +520,12 @@ export default function Overview() {
                     </h4>
                     <p className="text-[11px] text-slate-500 truncate mt-0.5">{inc.address}</p>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-cyan-400 transition-colors shrink-0" />
-                </div>
+                  {openingIncidentId === inc.id ? (
+                    <RefreshCw className="w-4 h-4 text-cyan-400 animate-spin shrink-0" aria-hidden="true" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-cyan-400 transition-colors shrink-0" aria-hidden="true" />
+                  )}
+                </button>
               ))
             )}
           </div>

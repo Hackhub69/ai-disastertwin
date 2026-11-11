@@ -36,6 +36,9 @@ export default function IncidentDetailDrawer({
   if (!incident) return null;
 
   const TypeIcon = TYPE_ICONS[incident.incident_type] || AlertTriangle;
+  const formatNumber = (value: number | null | undefined, decimals: number) => (
+    typeof value === 'number' && Number.isFinite(value) ? value.toFixed(decimals) : '—'
+  );
   let parsedScoreComponents: Record<string, any> = {};
   try {
     if (incident.score_components) {
@@ -120,7 +123,7 @@ export default function IncidentDetailDrawer({
                   <div>
                     <span className="font-medium text-white">{incident.address || 'Address unrecorded'}</span>
                     <p className="text-slate-400 font-mono mt-0.5">
-                      {incident.latitude.toFixed(4)}° N, {incident.longitude.toFixed(4)}° E
+                      {formatNumber(incident.latitude, 4)}° N, {formatNumber(incident.longitude, 4)}° E
                     </p>
                   </div>
                 </div>
@@ -155,7 +158,7 @@ export default function IncidentDetailDrawer({
                     Agent B Triage Transparency
                   </h4>
                   <span className="text-xs font-mono font-bold text-cyan-300 px-2 py-0.5 rounded bg-cyan-950/60 border border-cyan-500/40">
-                    Score: {incident.priority_score.toFixed(1)} / 100
+                    Score: {formatNumber(incident.priority_score, 1)} / 100
                   </span>
                 </div>
 
