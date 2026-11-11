@@ -11,7 +11,7 @@ import DemoBadge from './DemoBadge';
 interface IncidentDetailDrawerProps {
   incident: Incident | null;
   onClose: () => void;
-  onStatusChange?: (id: string, status: string) => void;
+  onStatusChange?: (id: string, status: Incident['status']) => void;
   onRetriage?: (id: string) => void;
   onGeneratePlan?: (id: string) => void;
   backdrop?: boolean;
@@ -191,10 +191,11 @@ export default function IncidentDetailDrawer({
               <div className="space-y-2">
                 <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Workflow State</span>
                 <div className="grid grid-cols-2 gap-2">
-                  {['reported', 'triaged', 'dispatched', 'resolved', 'closed'].map((st) => (
+                  {(['reported', 'triaged', 'dispatched', 'resolved', 'closed'] as Incident['status'][]).map((st) => (
                     <button
+                      type="button"
                       key={st}
-                      onClick={() => onStatusChange && onStatusChange(incident.id, st)}
+                      onClick={() => onStatusChange?.(incident.id, st)}
                       className={`text-xs py-2 px-3 rounded-xl font-medium border text-center transition-all capitalize ${
                         incident.status === st
                           ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-[0_0_15px_-3px_rgba(6,182,212,0.3)]'

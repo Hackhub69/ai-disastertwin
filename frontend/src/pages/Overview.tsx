@@ -11,7 +11,7 @@ import {
   Shield, CheckCircle2, ChevronRight, Zap, RefreshCw, Radio
 } from 'lucide-react';
 import { usePolling, useApi } from '../hooks/useApi';
-import { getDashboardSummary, getIncident, getWeather } from '../services/api';
+import { getDashboardSummary, getIncident, getWeather, updateIncident } from '../services/api';
 import DashboardStatCard from '../components/DashboardStatCard';
 import IncidentPriorityBadge from '../components/IncidentPriorityBadge';
 import DemoBadge from '../components/DemoBadge';
@@ -248,6 +248,21 @@ export default function Overview() {
   const { data, loading, error, refetch } = usePolling(getDashboardSummary, 15000);
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
   const [openingIncidentId, setOpeningIncidentId] = useState<string | null>(null);
+
+  const handleWorkflowStateChange = (id: string, status: Incident['status']) => {
+    // Keep the drawer responsive while the demo API records the workflow event.
+    setSelectedIncident(current => (
+      current?.id === id ? { ...current, status } : current
+    ));
+
+    void updateIncident(id, { status }).then(updated => {
+      setSelectedIncident(current => current?.id === id ? updated : current);
+      refetch();
+    }).catch(() => {
+      // Demo status selections remain visible even if a serverless instance
+      // rotates before it can persist the synthetic record.
+    });
+  };
 
   const openIncidentDetails = async (incidentId: string) => {
     setOpeningIncidentId(incidentId);
@@ -575,6 +590,7 @@ export default function Overview() {
       <IncidentDetailDrawer
         incident={selectedIncident}
         onClose={() => setSelectedIncident(null)}
+        onStatusChange={handleWorkflowStateChange}
         onGeneratePlan={() => {
           setSelectedIncident(null);
           navigate('/rescue');
