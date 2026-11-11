@@ -52,6 +52,31 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }
   rejected:         { bg: 'bg-red-500/15', text: 'text-red-300', border: 'border-red-500/40' },
 };
 
+type ChecklistOverrides = Record<string, boolean>;
+const CHECKLIST_STORAGE_KEY = 'ai-disastertwin-checklist-progress-v1';
+
+function loadChecklistOverrides(): ChecklistOverrides {
+  if (typeof window === 'undefined') return {};
+  try {
+    const saved = window.localStorage.getItem(CHECKLIST_STORAGE_KEY);
+    const parsed = saved ? JSON.parse(saved) : {};
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function withChecklistOverrides(assignment: RescueAssignment, overrides: ChecklistOverrides): RescueAssignment {
+  return {
+    ...assignment,
+    checklist: (assignment.checklist || []).map(item => (
+      Object.prototype.hasOwnProperty.call(overrides, item.id)
+        ? { ...item, completed: overrides[item.id] }
+        : item
+    )),
+  };
+}
+
 function StatusBadge({ status }: { status: string }) {
   const c = STATUS_COLORS[status] || { bg: 'bg-slate-800', text: 'text-slate-400', border: 'border-slate-700' };
   return (
@@ -193,20 +218,12 @@ function ChecklistPanel({
   onToggle,
 }: {
   items: ChecklistItem[];
-  onToggle: (id: string, completed: boolean) => Promise<void>;
+  onToggle: (id: string, completed: boolean) => void;
 }) {
   const completed = items.filter(i => i.completed).length;
   const progress = items.length > 0 ? (completed / items.length) * 100 : 0;
-  const [updatingItemId, setUpdatingItemId] = useState<string | null>(null);
 
-  const handleToggle = async (item: ChecklistItem) => {
-    setUpdatingItemId(item.id);
-    try {
-      await onToggle(item.id, !item.completed);
-    } finally {
-      setUpdatingItemId(null);
-    }
-  };
+  const handleToggle = (item: ChecklistItem) => onToggle(item.id, !item.completed);
 
   return (
     <div className="space-y-4">
@@ -236,11 +253,9 @@ function ChecklistPanel({
             type="button"
             key={item.id}
             layout
-            onClick={() => void handleToggle(item)}
-            disabled={updatingItemId === item.id}
+            onClick={() => handleToggle(item)}
             aria-label={`${item.completed ? 'Reopen' : 'Complete'} step ${item.step_number}: ${item.title}`}
-            aria-busy={updatingItemId === item.id}
-            className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer flex items-start gap-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/80 disabled:cursor-wait disabled:opacity-70 ${
+            className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer flex items-start gap-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/80 ${
               item.completed
                 ? 'bg-emerald-950/20 border-emerald-800/40 opacity-80'
                 : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'
@@ -253,9 +268,7 @@ function ChecklistPanel({
                   : 'border-slate-600 bg-slate-800'
               }`}
             >
-              {updatingItemId === item.id ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-400" aria-hidden="true" />
-              ) : item.completed ? (
+              {item.completed ? (
                 <Check className="w-3.5 h-3.5 stroke-[3]" aria-hidden="true" />
               ) : null}
             </div>
@@ -292,9 +305,11 @@ function ChecklistPanel({
 function AssignmentDetail({
   assignment,
   onRefresh,
+  onChecklistChange,
 }: {
   assignment: RescueAssignment;
   onRefresh: () => void;
+  onChecklistChange: (assignmentId: string, itemId: string, completed: boolean) => void;
 }) {
   const { addToast } = useToast();
   const [tab, setTab] = useState<'checklist' | 'timeline' | 'messages'>('checklist');
@@ -321,31 +336,27 @@ function AssignmentDetail({
     if (tab === 'messages') loadMessages();
   }, [tab, loadMessages]);
 
-  const handleChecklistToggle = async (itemId: string, completed: boolean) => {
+  const handleChecklistToggle = (itemId: string, completed: boolean) => {
     const previousChecklist = checklist;
 
-    // Make routine field progress feel immediate, then reconcile with the
-    // server response. If the save fails, restore the confirmed state.
-    setChecklist(items => items.map(item => (
+    // Demo progress is local-first so it stays responsive and consistent even
+    // when a serverless instance is starting or rotating in the background.
+    const nextChecklist = checklist.map(item => (
       item.id === itemId ? { ...item, completed } : item
-    )));
+    ));
+    setChecklist(nextChecklist);
+    onChecklistChange(assignment.id, itemId, completed);
 
-    try {
-      await rescueApi.updateChecklistItem(itemId, completed);
-      addToast({
-        title: completed ? 'Task Complete' : 'Task Reopened',
-        message: `Checklist item updated.`,
-        type: 'info',
-      });
-      onRefresh();
-    } catch (err: any) {
+    void rescueApi.updateChecklistItem(itemId, completed).catch((err: any) => {
+      if (assignment.is_demo) return;
       setChecklist(previousChecklist);
+      onChecklistChange(assignment.id, itemId, !completed);
       addToast({
         title: 'Checklist Error',
         message: err.message || 'Could not update task item',
         type: 'error',
       });
-    }
+    });
   };
 
   const handleApprove = async (action: 'approve' | 'reject') => {
@@ -1012,6 +1023,7 @@ export default function RescueResponse() {
   const { addToast } = useToast();
   const [activeTab, setActiveTab] = useState<TabKey>('plans');
   const [selectedAssignment, setSelectedAssignment] = useState<RescueAssignment | null>(null);
+  const [checklistOverrides, setChecklistOverrides] = useState<ChecklistOverrides>(loadChecklistOverrides);
   const [generating, setGenerating] = useState(false);
   const [selectedIncidentId, setSelectedIncidentId] = useState('');
 
@@ -1027,6 +1039,24 @@ export default function RescueResponse() {
     useApi<{ items: Incident[]; total: number }>(() => getIncidents());
 
   const incidents = incidentsData?.items || [];
+  const assignmentsWithProgress = (assignments || []).map(assignment =>
+    withChecklistOverrides(assignment, checklistOverrides)
+  );
+
+  const handleChecklistChange = (assignmentId: string, itemId: string, completed: boolean) => {
+    setChecklistOverrides(current => {
+      const next = { ...current, [itemId]: completed };
+      try {
+        window.localStorage.setItem(CHECKLIST_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // The current view still works if browser storage is unavailable.
+      }
+      return next;
+    });
+    setSelectedAssignment(current => (
+      current?.id === assignmentId ? withChecklistOverrides(current, { [itemId]: completed }) : current
+    ));
+  };
 
   const refetchAll = () => {
     refetchDash();
@@ -1045,7 +1075,7 @@ export default function RescueResponse() {
     if (selectedAssignment) {
       try {
         const updated = await rescueApi.getAssignment(selectedAssignment.id);
-        setSelectedAssignment(updated);
+        setSelectedAssignment(withChecklistOverrides(updated, checklistOverrides));
       } catch {
         // Ignored
       }
@@ -1078,7 +1108,7 @@ export default function RescueResponse() {
 
   const tabs: Array<{ key: TabKey; label: string; icon: React.ElementType; count?: number }> = [
     { key: 'plans', label: 'Response Plans', icon: FileText, count: plans?.length },
-    { key: 'assignments', label: 'Field Deployments', icon: ShieldCheck, count: assignments?.length },
+    { key: 'assignments', label: 'Field Deployments', icon: ShieldCheck, count: assignmentsWithProgress.length },
     { key: 'teams', label: 'Rescue Units', icon: Users, count: teams?.length },
   ];
 
@@ -1234,17 +1264,17 @@ export default function RescueResponse() {
             {/* Panel header */}
             <div className="flex items-center justify-between mb-1 px-1">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Active Deployments</span>
-              <span className="text-[10px] font-mono text-slate-500">{assignments?.length || 0} units</span>
+              <span className="text-[10px] font-mono text-slate-500">{assignmentsWithProgress.length} units</span>
             </div>
             {assignmentsLoading && <CardSkeleton count={3} />}
-            {!assignmentsLoading && assignments?.length === 0 && (
+            {!assignmentsLoading && assignmentsWithProgress.length === 0 && (
               <EmptyState
                 icon={ShieldCheck}
                 title="No Deployments Registered"
                 description="Approve a response plan and assign an available rescue team to initialize field deployment."
               />
             )}
-            {assignments?.map(a => {
+            {assignmentsWithProgress.map(a => {
               const isSelected = selectedAssignment?.id === a.id;
               const completedCount = a.checklist ? a.checklist.filter(c => c.completed).length : 0;
               const totalCount = a.checklist?.length || 0;
@@ -1313,6 +1343,7 @@ export default function RescueResponse() {
               <AssignmentDetail
                 assignment={selectedAssignment}
                 onRefresh={refreshAndUpdateSelected}
+                onChecklistChange={handleChecklistChange}
               />
             ) : (
               <div className="glass-panel p-10 rounded-2xl border border-slate-800 text-center text-slate-500">
