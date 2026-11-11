@@ -1,0 +1,35 @@
+# Environment & secrets
+.env
+*.env.local
+backend/.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+*.db
+test_*.db
+
+# Node / Frontend
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Deployment tooling
+.vercel/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

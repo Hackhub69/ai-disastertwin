@@ -1,0 +1,157 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    background-color: #090d16;
+    color: #f1f5f9;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    overflow-x: hidden;
+  }
+}
+
+/* Custom Tactical Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0b1120;
+}
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
+/* Leaflet map layout and z-index fixes */
+.leaflet-container {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 100% !important;
+  background-color: #0b1120 !important;
+}
+.leaflet-pane { z-index: 1 !important; }
+.leaflet-top, .leaflet-bottom { z-index: 2 !important; }
+
+/* Tactical Dark Map Shader (OpenStreetMap with Zero API Key & Zero Watermarks) */
+.tactical-dark-tiles,
+.tactical-dark-tiles .leaflet-tile,
+.leaflet-tile.tactical-dark-tiles {
+  filter: brightness(0.65) invert(1) contrast(2.6) hue-rotate(200deg) saturate(0.3) brightness(0.75) !important;
+}
+
+/* Street Map — soften bright blue water & land glare for comfortable dark UI viewing */
+.osm-street-dimmed,
+img.leaflet-tile.osm-street-dimmed,
+.map-street-mode .leaflet-tile-pane img.leaflet-tile,
+.map-street-mode .leaflet-tile-pane {
+  filter: brightness(0.78) saturate(0.52) contrast(1.04) hue-rotate(-6deg) !important;
+}
+
+/* Tactical Dark Command Center Map Popups */
+.tactical-popup .leaflet-popup-content-wrapper {
+  background: rgba(9, 13, 22, 0.95) !important;
+  border: 1px solid rgba(6, 182, 212, 0.5) !important;
+  border-radius: 16px !important;
+  color: #f1f5f9 !important;
+  box-shadow: 0 12px 30px -5px rgba(0, 0, 0, 0.9), 0 0 20px rgba(6, 182, 212, 0.25) !important;
+  backdrop-filter: blur(12px) !important;
+  padding: 0 !important;
+}
+.tactical-popup .leaflet-popup-tip {
+  background: rgba(9, 13, 22, 0.95) !important;
+  border: 1px solid rgba(6, 182, 212, 0.5) !important;
+}
+.tactical-popup .leaflet-popup-content {
+  margin: 12px 14px !important;
+  line-height: 1.4 !important;
+}
+.tactical-popup a.leaflet-popup-close-button {
+  color: #94a3b8 !important;
+  padding: 6px !important;
+}
+.tactical-popup a.leaflet-popup-close-button:hover {
+  color: #38bdf8 !important;
+}
+
+/* Custom Tactical Emergency Classes */
+.glass-panel {
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(51, 65, 85, 0.5);
+}
+
+.glass-card {
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(51, 65, 85, 0.4);
+}
+
+.glass-card:hover {
+  border-color: rgba(6, 182, 212, 0.4);
+  box-shadow: 0 0 20px -5px rgba(6, 182, 212, 0.15);
+}
+
+.glow-cyan {
+  box-shadow: 0 0 15px -3px rgba(6, 182, 212, 0.3);
+}
+
+.glow-red {
+  box-shadow: 0 0 15px -3px rgba(239, 68, 68, 0.35);
+}
+
+.glow-amber {
+  box-shadow: 0 0 15px -3px rgba(245, 158, 11, 0.3);
+}
+
+.glow-green {
+  box-shadow: 0 0 15px -3px rgba(16, 185, 129, 0.3);
+}
+
+/* Radar pulse animation for critical incident markers */
+@keyframes radar-pulse {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 14px rgba(239, 68, 68, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+}
+
+.pulse-radar-critical {
+  animation: radar-pulse 2s infinite;
+}
+
+@keyframes radar-sweep {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.radar-sweep-anim {
+  animation: radar-sweep 4s linear infinite;
+}
+
+/* Accessibility: respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
