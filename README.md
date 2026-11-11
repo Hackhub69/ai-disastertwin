@@ -63,6 +63,21 @@ Visit **http://localhost:5173**
 
 ---
 
+## Deploy to Vercel
+
+The repository includes a Vercel configuration that builds the React frontend and serves the FastAPI application at the same domain. API requests continue to use `/api`, so no frontend URL changes are needed.
+
+1. Push the `main` branch to GitHub.
+2. In Vercel, import the repository and keep the detected project settings.
+3. Add any optional secrets in **Project Settings → Environment Variables**:
+   - `OPENAI_API_KEY`
+   - `NASA_FIRMS_MAP_KEY`
+4. Deploy. The site is served from `/` and the API health endpoint is available at `/api/health`.
+
+> **Demo data note:** the default SQLite database is suitable for a demo but serverless deployments do not provide durable local file storage. Use a managed database before relying on persisted data in production.
+
+---
+
 ## Optional API Configuration
 
 Edit `backend/.env`:
@@ -170,16 +185,19 @@ ai-disastertwin/
 │   │   ├── models/          # SQLAlchemy models
 │   │   ├── services/        # Weather, OpenAI, Audit
 │   │   └── simulations/     # Scenario engine
-│   ├── tests/               # 58 passing tests
+│   ├── tests/               # Automated backend tests
 │   ├── seed.py
 │   └── requirements.txt
+├── api/
+│   └── index.py             # Vercel FastAPI entry point
 ├── frontend/
 │   └── src/
 │       ├── pages/           # 9 pages
 │       ├── components/      # Reusable UI
 │       ├── services/        # API client
 │       └── hooks/           # useApi, usePolling
-├── .env.example
+├── requirements.txt         # Vercel Python dependencies
+├── vercel.json
 ├── .gitignore
 └── README.md
 ```
