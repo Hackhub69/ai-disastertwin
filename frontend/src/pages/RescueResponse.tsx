@@ -302,6 +302,11 @@ function AssignmentDetail({
   const [loadingMsg, setLoadingMsg] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [msgLang, setMsgLang] = useState<'en' | 'hi' | 'mr'>('en');
+  const [checklist, setChecklist] = useState<ChecklistItem[]>(assignment.checklist || []);
+
+  React.useEffect(() => {
+    setChecklist(assignment.checklist || []);
+  }, [assignment.id, assignment.checklist]);
 
   const loadMessages = useCallback(async () => {
     try {
@@ -317,6 +322,14 @@ function AssignmentDetail({
   }, [tab, loadMessages]);
 
   const handleChecklistToggle = async (itemId: string, completed: boolean) => {
+    const previousChecklist = checklist;
+
+    // Make routine field progress feel immediate, then reconcile with the
+    // server response. If the save fails, restore the confirmed state.
+    setChecklist(items => items.map(item => (
+      item.id === itemId ? { ...item, completed } : item
+    )));
+
     try {
       await rescueApi.updateChecklistItem(itemId, completed);
       addToast({
@@ -326,6 +339,7 @@ function AssignmentDetail({
       });
       onRefresh();
     } catch (err: any) {
+      setChecklist(previousChecklist);
       addToast({
         title: 'Checklist Error',
         message: err.message || 'Could not update task item',
@@ -558,7 +572,7 @@ function AssignmentDetail({
       {/* Tab Panels */}
       <div className="p-5 flex-1 overflow-y-auto">
         {tab === 'checklist' && (
-          <ChecklistPanel items={assignment.checklist || []} onToggle={handleChecklistToggle} />
+          <ChecklistPanel items={checklist} onToggle={handleChecklistToggle} />
         )}
 
         {tab === 'timeline' && (
